@@ -1,0 +1,10 @@
+# Your Wi-Fi name and password. Never commit this.
+cyd_pixel_toggle/secrets.h
+
+# Runtime output and build folders
+cyd_pixel_toggle/.agent/gates/
+cyd_pixel_toggle/.claude/
+build/
+*.log
+.DS_Store
+__pycache__/

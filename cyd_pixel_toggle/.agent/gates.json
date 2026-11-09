@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "stop_max_attempts": 2,
+  "gates": [
+    {
+      "name": "host-tests",
+      "kind": "test",
+      "cmd": "sh ../cyd_pixel_toggle_tests/run_all.sh",
+      "timeout": 300,
+      "enforce": true,
+      "on_stop": true,
+      "note": "Physics, LIFX packets, LIFX simulator and the laptop drawing preview. Runs the real draw, physics, lifx and touch code against mocks."
+    },
+    {
+      "name": "firmware-compile",
+      "kind": "build",
+      "cmd": "arduino-cli compile --fqbn esp32:esp32:esp32:UploadSpeed=115200 --build-path \"${TMPDIR:-/tmp}/cyd_gate_build\" .",
+      "timeout": 600,
+      "enforce": true,
+      "on_stop": true,
+      "note": "Compiles the real firmware for the ESP32 with the normal build flags. Also acts as the type check. No upload."
+    }
+  ]
+}

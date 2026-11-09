@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pixel Toggle Wiring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Shantell+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: a bench sheet on graph paper. Title, a switch between the two builds, sticky step chips, the hand-drawn setup beside the parts list, then the first-power-up card. */
+:root{
+  --paper:#edf2f5; --grid:#dbe4eb; --ink:#17222d; --muted:#556574; --rule:#c3d0db;
+  --board:#fbfdfe; --board-edge:#c4d0da; --hole:#93a1ae; --channel:#e1e8ee;
+  --pcb:#16324f; --pcb-dark:#16191e; --on-pcb:#e3ecf5; --gold:#c69a3c; --metal:#c7d0d8;
+  --rail-red:#cf3434; --rail-blue:#2d68c9;
+  --cyd:#6a45d0; --wifi:#0a857a; --inside:#3f6fa8; --touch:#c2417b; --v33:#d9780f; --gnd:#1c1f23;
+  --card:#ffffffd9; --chip:#ffffff; --warn-bg:#fdeee3; --warn-ink:#8a3a00; --ok-bg:#e3f4ee; --ok-ink:#0b5a4b;
+  --f-sketch:"Shantell Sans","Chalkboard SE","Comic Sans MS",cursive;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0f171e; --grid:#18242e; --ink:#e3eaf0; --muted:#97a7b5; --rule:#2a3a47;
+    --board:#1c2731; --board-edge:#34444f; --hole:#5a6c7b; --channel:#24313c;
+    --pcb:#123352; --pcb-dark:#0b0d10; --gold:#d6ad55; --metal:#9aa6b1;
+    --rail-red:#ff6a6a; --rail-blue:#6a9cf5;
+    --cyd:#a68bff; --wifi:#2ccfbe; --inside:#8fadc9; --touch:#ff7fb2; --v33:#ffa04d; --gnd:#d6dce1;
+    --card:#16212bd9; --chip:#16212b; --warn-bg:#3a2414; --warn-ink:#ffc597; --ok-bg:#12332c; --ok-ink:#9ee6d6;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0f171e; --grid:#18242e; --ink:#e3eaf0; --muted:#97a7b5; --rule:#2a3a47;
+  --board:#1c2731; --board-edge:#34444f; --hole:#5a6c7b; --channel:#24313c;
+  --pcb:#123352; --pcb-dark:#0b0d10; --gold:#d6ad55; --metal:#9aa6b1;
+  --rail-red:#ff6a6a; --rail-blue:#6a9cf5;
+  --cyd:#a68bff; --wifi:#2ccfbe; --inside:#8fadc9; --touch:#ff7fb2; --v33:#ffa04d; --gnd:#d6dce1;
+  --card:#16212bd9; --chip:#16212b; --warn-bg:#3a2414; --warn-ink:#ffc597; --ok-bg:#12332c; --ok-ink:#9ee6d6;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background-color:var(--paper); color:var(--ink); font-family:var(--f-body); font-size:16px; line-height:1.5;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+.wrap{max-width:1260px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-family:var(--f-sketch);font-weight:700;font-size:clamp(30px,4.4vw,46px);line-height:1.1;margin:0 0 8px;text-wrap:balance;letter-spacing:-.01em}
+.sub{margin:0;color:var(--muted);max-width:72ch}
+h2{font-family:var(--f-sketch);font-weight:600;font-size:26px;margin:0 0 6px;text-wrap:balance}
+h3{font-size:17px;margin:0;text-wrap:balance}
+[hidden]{display:none!important}
+.vtabs{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.vtab{appearance:none;border:1.5px solid var(--rule);background:var(--chip);color:var(--ink);font:700 16px/1.25 var(--f-body);padding:10px 18px 10px 14px;border-radius:12px;cursor:pointer;text-align:left}
+.vtab small{display:block;font:400 13px/1.3 var(--f-body);color:var(--muted)}
+.vtab:hover{border-color:var(--ink)}
+.vtab:focus-visible{outline:3px solid var(--cyd);outline-offset:2px}
+.vtab[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.vtab[aria-selected="true"] small{color:var(--paper);opacity:.75}
+.chipbar{position:sticky;top:0;z-index:5;background:var(--paper);padding-block:14px 12px;margin-top:14px;border-bottom:1.5px dashed var(--rule)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{appearance:none;border:1.5px solid var(--rule);background:var(--chip);color:var(--ink);font:600 15px/1 var(--f-body);padding:9px 14px 9px 12px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.chip:hover{border-color:var(--ink)}
+@media (max-width:700px){
+  .chips{flex-wrap:nowrap;overflow-x:auto;margin-inline:-16px;padding-inline:16px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none}
+}
+.chip:focus-visible{outline:3px solid var(--cyd);outline-offset:2px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--c,var(--ink));flex:none;box-shadow:0 0 0 2px var(--chip)}
+.chip[aria-pressed="true"] .dot{box-shadow:0 0 0 2px var(--ink)}
+.hint{margin:8px 0 0;font-size:14px;color:var(--muted)}
+.main{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;margin-top:20px;align-items:start}
+@media (min-width:1080px){.main{grid-template-columns:minmax(0,780px) minmax(0,1fr)}}
+.draw{overflow-x:auto;border:1.5px solid var(--rule);border-radius:16px;background:var(--card)}
+.dia{display:block;width:100%;min-width:560px;height:auto}
+.panel{min-width:0;display:flex;flex-direction:column;gap:18px}
+@media (min-width:1080px){.panel{position:sticky;top:86px;max-height:calc(100vh - 110px);overflow:auto;padding-right:4px}}
+.lead{margin:0;max-width:62ch}
+.big{background:var(--ok-bg);color:var(--ok-ink);border-radius:10px;padding:10px 14px;margin:0;font-size:16px}
+.step{border-left:5px solid var(--c);padding:2px 0 2px 14px;display:flex;flex-direction:column;gap:8px}
+.step h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.step .n{font-family:var(--f-mono);font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.step p{margin:0}
+.warn{background:var(--warn-bg);color:var(--warn-ink);border-radius:8px;padding:8px 12px;font-weight:700;font-size:15px;margin:0}
+.note{color:var(--muted);font-size:14.5px;margin:0}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{text-align:left;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:4px 10px 6px 0;border-bottom:1.5px solid var(--rule)}
+td{padding:6px 10px 6px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+td.mono,code,kbd{font-family:var(--f-mono);font-size:13px}
+td.mono{white-space:nowrap}
+.step td:nth-child(2){min-width:96px}
+.serial{margin-top:40px;background:var(--card);border:1.5px solid var(--rule);border-radius:16px;padding-block:22px 26px;padding-inline:clamp(16px,3vw,32px)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;margin-top:14px}
+@media (min-width:900px){.cols{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}}
+.cols > div{min-width:0;display:flex;flex-direction:column;gap:12px}
+.cols p,.cols ol{margin:0}
+.cols ol{padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.cmd{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
+.cmd code{flex:1 1 260px;min-width:0;overflow-x:auto;white-space:nowrap;background:var(--paper);border:1.5px solid var(--rule);border-radius:8px;padding:9px 12px;display:block}
+.copy{appearance:none;border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);font:700 14px var(--f-body);border-radius:8px;padding:0 14px;cursor:pointer;min-height:40px}
+.copy:focus-visible{outline:3px solid var(--cyd);outline-offset:2px}
+kbd{display:inline-block;min-width:1.6em;text-align:center;padding:1px 6px;border:1.5px solid var(--rule);border-bottom-width:3px;border-radius:6px;background:var(--chip);font-weight:600}
+.cmdlbl{margin:10px 0 6px;font-size:14px;font-weight:700;color:var(--muted)}
+.keys td:first-child{width:46%}
+.out{font-family:var(--f-mono);font-size:13px;background:var(--paper);border:1.5px solid var(--rule);border-radius:8px;padding:10px 12px;white-space:pre-wrap;margin:0;overflow-x:auto}
+.sw{display:inline-block;width:22px;height:0;border-top:4px dotted var(--wifi);vertical-align:middle;margin-right:2px}
+.swl{display:inline-block;width:22px;height:4px;border-radius:2px;background:var(--c);vertical-align:middle;margin-right:2px}
+/* drawings */
+.dia .grp{transition:opacity .25s ease;cursor:pointer}
+.dia.dim .grp:not(.on){opacity:.1}
+.dia .w{fill:none;stroke-width:var(--sw,3.4px);stroke-linecap:round;stroke-linejoin:round}
+.dia.dim .grp.on .w{stroke-width:calc(var(--sw,3.4px) + 1.2px)}
+.dia text{font-family:var(--f-sketch);fill:var(--ink)}
+.dia .lbl{font-size:13px}
+.dia .small{font-size:10.5px}
+.dia .tiny{font-size:8.5px}
+.dia .onpcb{fill:var(--on-pcb)}
+.dia .onmetal{fill:#1e252c}
+.dia .pin{font-family:var(--f-mono);font-size:6.2px;fill:var(--on-pcb)}
+.dia .pin.hot{fill:var(--gold);font-weight:600;font-size:7px}
+.dia .mpin{font-family:var(--f-mono);font-size:7.6px;font-weight:600;fill:var(--on-pcb)}
+.dia .num{font-family:var(--f-mono);font-size:8px;fill:var(--muted)}
+.dia .plus{font-family:var(--f-mono);font-size:12px;font-weight:600;fill:var(--rail-red)}
+.dia .minus{font-family:var(--f-mono);font-size:12px;font-weight:600;fill:var(--rail-blue)}
+.dia .tag{font-family:var(--f-mono);font-size:8.5px;font-weight:600}
+@media (prefers-reduced-motion: reduce){.dia .grp{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pixel Toggle Wiring</h1>
+  <p class="sub" data-show="cyd">Your CYD (the “Cheap Yellow Display”) is a one-board computer: the ESP32, the screen and the touch chip are already wired together. So there is no breadboard to build. This sheet shows the three things you do set up: the USB cable, the Wi-Fi, and the bulb. Pick a step to see only that part.</p>
+  <p class="sub" data-show="bb" hidden>The alternate build: an ESP32 dev board on your two half-size breadboards, wired to a separate 2.8 in touch-screen module. It uses the same ESP32 pins the CYD has inside, so the same sketch runs with no code changes. Columns run 30 on the left to 1 on the right, as printed on your boards. Pick a step to see only its wires.</p>
+
+  <div class="vtabs" role="tablist" aria-label="Which hardware">
+    <button class="vtab" role="tab" id="t-cyd" data-variant="cyd" aria-selected="true">CYD board (yours)<small>all-in-one, no breadboard</small></button>
+    <button class="vtab" role="tab" id="t-bb" data-variant="bb" aria-selected="false">Breadboard version<small>optional: loose ESP32 + separate screen</small></button>
+  </div>
+
+  <div class="chipbar">
+    <div class="chips" id="chips" role="toolbar" aria-label="Show setup for"></div>
+    <p class="hint" id="hint"></p>
+  </div>
+
+  <div class="main">
+    <div class="draw">
+      <svg class="dia" id="dia-cyd" viewBox="0 0 780 1085" role="img" aria-label="Sketch of the setup. A Mac is joined by one USB cable to the CYD board, shown from the front with the toggle on its screen and from the back with its BOOT and RESET buttons. A second drawing shows the screen and touch chip already wired to the ESP32 inside the board. A third shows the CYD, a router and a LIFX bulb joined by Wi-Fi."></svg>
+      <svg class="dia" id="dia-bb" viewBox="0 0 780 1000" hidden role="img" aria-label="Sketch of two stacked half-size breadboards with the ESP32 dev board across both. Twelve jumper wires run from the breadboard to the 14-pin header of a 2.8 inch screen module on the right: eight for the screen and four for the touch chip. The ESP32 connects to a Mac by USB. A second drawing shows the ESP32, a router and a LIFX bulb joined by Wi-Fi."></svg>
+    </div>
+    <section class="panel" id="panel" aria-live="polite"></section>
+  </div>
+
+  <section class="serial" id="serial">
+    <h2>First power-up and Serial Monitor</h2>
+    <p class="lead">The Serial Monitor is a text window connected to the board over USB. It shows what the sketch prints, which is the fastest way to see what the board is doing. SETUP.md has the full test checklist.</p>
+    <div class="cols">
+      <div>
+        <h3>Open it</h3>
+        <ol>
+          <li>Close any other monitor on that port first, including the Arduino IDE’s Serial Monitor: only one program can use a port at a time.</li>
+          <li>Find the port name.
+            <div class="cmd">
+              <code id="cmd-list">arduino-cli board list</code>
+              <button class="copy" data-for="cmd-list" type="button">Copy</button>
+            </div>
+          </li>
+          <li>Open the monitor. Swap <code>XXXX</code> for what the list showed.
+            <div class="cmd">
+              <code id="cmd-mon">arduino-cli monitor -p /dev/cu.usbserial-XXXX --config 115200</code>
+              <button class="copy" data-for="cmd-mon" type="button">Copy</button>
+            </div>
+          </li>
+          <li>Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to quit.</li>
+        </ol>
+        <p class="note">In the Arduino IDE: Tools › Serial Monitor (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd>), 115200 baud.</p>
+        <p class="note">Opening a monitor restarts the board. That is normal. Quit the monitor before you upload, or the upload fails with “Resource busy”. Upload at 115200 (Tools › Upload Speed).</p>
+        <h3>What the board prints</h3>
+<pre class="out">[draw] picture buffer: … bytes in … strip(s)   ← at start
+[mem] free heap …, biggest free block …        ← at start
+[touch] using saved calibration                ← or “calibration done and saved”
+[lifx 3.2s] Wi-Fi connected, this board's address is …
+[lifx 5.0s] using bulb … at 192.168.…
+[sync] bulb is ON -&gt; toggle follows            ← toggle matches the bulb
+[lifx …] tap: bulb should be OFF               ← when you tap
+[lifx …] bulb confirmed: it is OFF
+[fps] … fps while animating | draw … us …      ← every 2 s while it moves</pre>
+      </div>
+      <div>
+        <h3>On the screen, first time</h3>
+        <ol>
+          <li>A “PIXEL TOGGLE” splash for about 1.6 seconds.</li>
+          <li>First run only: “Touch calibration”. Tap the centre of each mark as it appears. The result is saved in the board and not asked for again.</li>
+          <li>The toggle appears in dark mode, then flips to match the bulb once the bulb answers.</li>
+          <li>Tap the toggle. It slides, and the bulb fades on or off over about 0.3 seconds.</li>
+        </ol>
+        <p class="note">Redo the calibration later: press <span data-show="cyd">RESET</span><span data-show="bb" hidden>the EN button</span>, then hold <kbd>BOOT</kbd> (or keep a finger on the glass) while the splash shows. Do not hold BOOT while pressing <span data-show="cyd">RESET</span><span data-show="bb" hidden>EN</span>: that puts the chip into upload mode.</p>
+        <h3>If something looks wrong</h3>
+        <div class="tw">
+          <table class="keys">
+            <thead><tr><th>What you see</th><th>Change in config.h</th></tr></thead>
+            <tbody>
+              <tr><td>Colours like a photo negative</td><td><code>CYD_VARIANT</code> 1↔2 (or 3↔4)</td></tr>
+              <tr data-show="cyd"><td>White screen, garbage or nothing</td><td><code>CYD_VARIANT</code> 1↔3 (or 2↔4)</td></tr>
+              <tr><td>Orange looks blue</td><td><code>CYD_SWAP_RED_BLUE</code> to 1</td></tr>
+              <tr><td>Picture upside down</td><td><code>CYD_ROTATION</code> 1 to 3</td></tr>
+              <tr><td>Red dot, top-right</td><td>Not on Wi-Fi: check secrets.h and 2.4 GHz</td></tr>
+              <tr><td>Amber dot, top-right</td><td>No bulb found: set <code>LIFX_FALLBACK_IP</code></td></tr>
+              <tr data-show="bb" hidden><td>White or blank screen</td><td>Not a setting: recheck the CS, DC, RESET, LED, VCC and GND wires</td></tr>
+              <tr data-show="bb" hidden><td>Picture fine, touch does nothing or lands wrong</td><td>Recheck T_CLK, T_CS, T_DIN and T_DO, then redo the calibration</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // Drawing toolkit. One kit per SVG, so each has its own filter and arrow ids.
+  function Kit(svg, sfx) {
+    const el = (tag, a, p) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; };
+    const text = (p, x, y, s, cls, anchor) => { const t = el('text', { x, y, class: cls, 'text-anchor': anchor || 'middle' }, p); t.textContent = s; return t; };
+    const muted = t => { t.style.fill = 'var(--muted)'; return t; };
+    // Smooth curve through points (Catmull-Rom to Bezier).
+    const smooth = pts => {
+      let d = `M${pts[0][0]},${pts[0][1]}`;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+        const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+        const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+        d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0]},${p2[1]}`;
+      }
+      return d;
+    };
+    // Straight runs with rounded corners, for tidy jumper wires.
+    const ortho = (pts, r) => {
+      let d = `M${pts[0][0]},${pts[0][1]}`;
+      for (let i = 1; i < pts.length - 1; i++) {
+        const [px, py] = pts[i - 1], [qx, qy] = pts[i], [nx, ny] = pts[i + 1];
+        const l1 = Math.hypot(qx - px, qy - py), l2 = Math.hypot(nx - qx, ny - qy);
+        const rr = Math.min(r, l1 / 2, l2 / 2);
+        d += ` L${(qx - (qx - px) / l1 * rr).toFixed(1)},${(qy - (qy - py) / l1 * rr).toFixed(1)} Q${qx},${qy} ${(qx + (nx - qx) / l2 * rr).toFixed(1)},${(qy + (ny - qy) / l2 * rr).toFixed(1)}`;
+      }
+      const z = pts[pts.length - 1];
+      return d + ` L${z[0]},${z[1]}`;
+    };
+    const defs = el('defs', {});
+    const flt = el('filter', { id: 'rough' + sfx, x: '-3%', y: '-3%', width: '106%', height: '106%' }, defs);
+    el('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.04', numOctaves: '2', seed: '4', result: 'n' }, flt);
+    el('feDisplacementMap', { in: 'SourceGraphic', in2: 'n', scale: '2.2', xChannelSelector: 'R', yChannelSelector: 'G' }, flt);
+    const mk = el('marker', { id: 'ah' + sfx, viewBox: '0 0 10 10', refX: '8', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse' }, defs);
+    el('path', { d: 'M0,0 L10,5 L0,10 z', style: 'fill:var(--ink)' }, mk);
+    const mk2 = el('marker', { id: 'ahw' + sfx, viewBox: '0 0 10 10', refX: '8', refY: '5', markerWidth: '11', markerHeight: '11', markerUnits: 'userSpaceOnUse', orient: 'auto-start-reverse' }, defs);
+    el('path', { d: 'M0,0 L10,5 L0,10 z', style: 'fill:var(--wifi)' }, mk2);
+
+    const layer = (cls, id) => {
+      const g = el('g', id ? { class: cls, 'data-g': id } : { class: cls });
+      return { g, sk: el('g', { filter: `url(#rough${sfx})` }, g), tx: el('g', {}, g) };
+    };
+    const wire = (L, pts, color, w) => {
+      el('path', { d: smooth(pts), class: 'w', style: `stroke:${color}${w ? ';--sw:' + w + 'px' : ''}` }, L.sk);
+      for (const p of [pts[0], pts[pts.length - 1]]) el('circle', { cx: p[0], cy: p[1], r: w ? w * 0.9 : 3.4, style: `fill:${color};stroke:var(--board);stroke-width:1.2` }, L.sk);
+    };
+    // A jumper wire: starts in a breadboard hole (filled dot), ends on a header pin (ring).
+    const jumper = (L, pts, color) => {
+      el('path', { d: ortho(pts, 7), class: 'w', style: `stroke:${color};--sw:2.4px` }, L.sk);
+      const a = pts[0], z = pts[pts.length - 1];
+      el('circle', { cx: a[0], cy: a[1], r: 3.6, style: `fill:${color};stroke:var(--board);stroke-width:1.2` }, L.sk);
+      el('circle', { cx: z[0], cy: z[1], r: 4.6, style: `fill:none;stroke:${color};stroke-width:1.8` }, L.sk);
+    };
+    const pinSq = (L, x, y, s) => el('rect', { x: x - s / 2, y: y - s / 2, width: s, height: s, rx: 1, style: 'fill:var(--gold)' }, L.sk);
+    const arrow = (p, d) => el('path', { d, style: 'fill:none;stroke:var(--ink);stroke-width:1.6', 'marker-end': `url(#ah${sfx})` }, p);
+    // A label that sits on a wire: a paper-coloured patch behind the text hides the wire under it.
+    const tag = (p, x, y, s, anchor) => {
+      const a = anchor || 'middle', w = s.length * 5.15 + 6;
+      const x0 = a === 'start' ? x - 3 : a === 'end' ? x - w + 3 : x - w / 2;
+      el('rect', { x: x0, y: y - 8.5, width: w, height: 11.5, rx: 2, style: 'fill:var(--board)' }, p);
+      return text(p, x, y, s, 'tag', a);
+    };
+    // The pixel moon from the toggle: a big circle with a second circle bitten out of it.
+    const moon = (L, cx, cy, cell) => {
+      const N = 13, x0 = cx - N * cell / 2, y0 = cy - N * cell / 2;
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        const inOuter = (i - 6) ** 2 + (j - 6) ** 2 <= 6.3 ** 2;
+        const inBite = (i - 9) ** 2 + (j - 4) ** 2 <= 5.3 ** 2;
+        if (inOuter && !inBite) el('rect', { x: x0 + i * cell, y: y0 + j * cell, width: cell - 0.5, height: cell - 0.5, style: 'fill:#f3f5fb' }, L.sk);
+      }
+    };
+    return { svg, sfx, el, text, muted, layer, wire, jumper, pinSq, arrow, tag, moon };
+  }
+
+  // Wi-Fi step, shared by both builds. `icon` draws the little board on the left; `y` shifts the whole group.
+  function wifiLayer(K, icon, who, dy) {
+    const { el, text, muted, layer, sfx } = K;
+    const wf = layer('grp', 'wifi');
+    text(wf.tx, 390, 896, `No wires here: the ${who} and the bulb talk over your home Wi-Fi.`, 'lbl');
+    icon(wf);
+    // the router
+    el('path', { d: 'M326,966 L316,930 M444,966 L454,930', style: 'fill:none;stroke:var(--ink);stroke-width:3.5;stroke-linecap:round' }, wf.sk);
+    el('rect', { x: 300, y: 966, width: 170, height: 46, rx: 7, style: 'fill:var(--pcb-dark);stroke:var(--ink);stroke-width:1.5' }, wf.sk);
+    for (const x of [330, 348, 366]) el('circle', { cx: x, cy: 989, r: 3, style: 'fill:var(--wifi)' }, wf.sk);
+    text(wf.tx, 424, 994, 'Router', 'small onpcb');
+    text(wf.tx, 385, 1038, 'home router', 'small');
+    muted(text(wf.tx, 385, 1051, '2.4 GHz Wi-Fi', 'tiny'));
+    // the bulb
+    el('circle', { cx: 660, cy: 954, r: 47, style: 'fill:none;stroke:#e0a030;stroke-width:1.6;stroke-dasharray:3 5' }, wf.sk);
+    el('circle', { cx: 660, cy: 954, r: 34, style: 'fill:#ffe9a8;stroke:var(--ink);stroke-width:1.5' }, wf.sk);
+    el('path', { d: 'M652,970 V958 M668,970 V958 M652,958 C652,944 668,944 668,958', style: 'fill:none;stroke:#b7791f;stroke-width:1.8;stroke-linecap:round' }, wf.sk);
+    el('rect', { x: 642, y: 984, width: 36, height: 24, rx: 4, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1.2' }, wf.sk);
+    el('path', { d: 'M644,992 h32 M644,998 h32', style: 'fill:none;stroke:var(--ink);stroke-width:1' }, wf.sk);
+    text(wf.tx, 660, 1038, 'LIFX bulb', 'small');
+    muted(text(wf.tx, 660, 1051, 'in a lamp, switched on', 'tiny'));
+    // dotted Wi-Fi links, arrows both ways
+    const link = d => el('path', { d, style: 'fill:none;stroke:var(--wifi);stroke-width:3;stroke-linecap:round;stroke-dasharray:1 8', 'marker-start': `url(#ahw${sfx})`, 'marker-end': `url(#ahw${sfx})` }, wf.sk);
+    link('M172,976 C212,950 258,952 294,984');
+    link('M476,984 C520,960 568,952 614,954');
+    text(wf.tx, 233, 944, 'Wi-Fi', 'small');
+    text(wf.tx, 545, 944, 'Wi-Fi', 'small');
+    muted(text(wf.tx, 390, 1072, `The ${who} asks “are you on?” every 3 s and sends on/off with a 0.3 s fade (LIFX LAN protocol, UDP port 56700).`, 'tiny'));
+    if (dy) wf.g.setAttribute('transform', `translate(0,${dy})`);
+    return wf;
+  }
+
+  // ======================= CYD build =======================
+  function drawCyd(K) {
+    const { el, text, muted, layer, wire, pinSq, arrow, tag, moon } = K;
+
+    // ---------- step 1: CYD + USB cable ----------
+    const cy = layer('grp', 'cyd');
+    const S = cy.sk, T = cy.tx;
+    // the Mac
+    el('rect', { x: 30, y: 78, width: 170, height: 108, rx: 8, style: 'fill:var(--pcb-dark);stroke:var(--ink);stroke-width:1.5' }, S);
+    el('rect', { x: 38, y: 86, width: 154, height: 92, rx: 3, style: 'fill:var(--pcb)' }, S);
+    el('rect', { x: 14, y: 186, width: 202, height: 12, rx: 5, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1.2' }, S);
+    text(T, 115, 128, 'Arduino IDE', 'small onpcb');
+    text(T, 115, 144, 'Serial Monitor', 'tiny onpcb');
+    text(T, 115, 224, 'your Mac', 'small');
+    // CYD, front view
+    text(T, 300, 56, 'CYD board, front', 'lbl', 'start');
+    el('rect', { x: 300, y: 70, width: 320, height: 196, rx: 8, style: 'fill:var(--pcb);stroke:var(--ink);stroke-width:1.5' }, S);
+    el('rect', { x: 314, y: 78, width: 292, height: 180, rx: 5, style: 'fill:#0b0d10' }, S);
+    el('rect', { x: 344, y: 81, width: 232, height: 174, rx: 2, style: 'fill:#14161d' }, S);
+    // the toggle on its screen, dark mode (screen px -> drawing units)
+    const SC = 232 / 320, X = v => 344 + v * SC, Y = v => 81 + v * SC;
+    el('rect', { x: X(23), y: Y(51), width: 274 * SC, height: 139 * SC, rx: 33, style: 'fill:#07080d;stroke:#252a44;stroke-width:1.2' }, S);
+    el('rect', { x: X(30), y: Y(58), width: 125 * SC, height: 127 * SC, rx: 22, style: 'fill:#363d5b;stroke:#7f8cff;stroke-width:2' }, S);
+    moon(cy, X(92.5), Y(121.5), 3.6);
+    for (const [a, b] of [[205, 92], [250, 118], [228, 150], [270, 86]]) el('rect', { x: X(a), y: Y(b), width: 3, height: 3, style: 'fill:#4a5075' }, S);
+    el('circle', { cx: X(308), cy: Y(12), r: 3.2, style: 'fill:#e0a030' }, S);
+    text(T, 614, 40, 'status dot (shows only', 'tiny', 'end');
+    text(T, 614, 51, 'when something is wrong)', 'tiny', 'end');
+    arrow(T, 'M590,56 C590,72 578,80 570,86');
+    text(T, 636, 112, 'Tap anywhere', 'lbl', 'start');
+    text(T, 636, 130, 'on the toggle:', 'lbl', 'start');
+    text(T, 636, 148, 'it flips and the', 'lbl', 'start');
+    text(T, 636, 166, 'bulb follows.', 'lbl', 'start');
+    arrow(T, 'M632,176 C612,194 592,192 568,184');
+    muted(text(T, 460, 290, 'Dark = bulb off  ·  Light = bulb on', 'small'));
+    // USB socket + plug + cable
+    el('rect', { x: 292, y: 158, width: 14, height: 20, rx: 2, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1.2' }, S);
+    el('path', { d: 'M220,192 C244,192 244,168 262,168', class: 'w', style: 'stroke:var(--gnd);--sw:6px' }, S);
+    el('rect', { x: 258, y: 157, width: 36, height: 22, rx: 3, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1.2' }, S);
+    text(T, 290, 216, 'USB data cable', 'small', 'end');
+    muted(text(T, 290, 229, 'not a charge-only one', 'tiny', 'end'));
+    // CYD, back view
+    text(T, 300, 332, 'CYD board, back (turned over like a page)', 'lbl', 'start');
+    el('rect', { x: 300, y: 342, width: 320, height: 196, rx: 8, style: 'fill:var(--pcb);stroke:var(--ink);stroke-width:1.5' }, S);
+    el('rect', { x: 326, y: 358, width: 116, height: 90, rx: 3, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1' }, S);
+    el('rect', { x: 326, y: 358, width: 116, height: 26, rx: 2, style: 'fill:#a9b4be' }, S);
+    el('path', { d: 'M334,378 h14 v-12 h12 v12 h12 v-12 h12 v12 h12 v-12 h12 v12 h12 v-12 h12 v12 h6', style: 'fill:none;stroke:#6f7b86;stroke-width:1.5' }, S);
+    text(T, 384, 416, 'ESP32', 'lbl onmetal');
+    text(T, 384, 432, 'the brain', 'tiny onmetal');
+    el('rect', { x: 612, y: 410, width: 20, height: 30, rx: 2, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1.2' }, S);
+    text(T, 642, 422, 'USB socket', 'small', 'start');
+    muted(text(T, 642, 436, 'some boards have two', 'tiny', 'start'));
+    muted(text(T, 642, 447, '(micro-USB and USB-C):', 'tiny', 'start'));
+    muted(text(T, 642, 458, 'use one', 'tiny', 'start'));
+    for (const [n, y] of [['BOOT', 470], ['RESET', 498]]) {
+      el('rect', { x: 578, y: y - 8, width: 16, height: 16, rx: 3, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1' }, S);
+      el('circle', { cx: 586, cy: y, r: 4, style: 'fill:#4b5560' }, S);
+      text(T, 570, y + 4, n, 'small onpcb', 'end');
+    }
+    el('rect', { x: 288, y: 420, width: 28, height: 44, rx: 2, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1.2' }, S);
+    text(T, 282, 438, 'microSD slot', 'small', 'end');
+    muted(text(T, 282, 451, '(not used)', 'tiny', 'end'));
+    const sock = (x, w, label) => {
+      el('rect', { x, y: 516, width: w, height: 14, rx: 2, style: 'fill:#efe6d2;stroke:var(--ink);stroke-width:1' }, S);
+      text(T, x + w / 2, 511, label, 'tiny onpcb');
+    };
+    sock(326, 40, 'P1'); sock(376, 40, 'P3'); sock(426, 40, 'CN1'); sock(486, 26, 'speaker');
+    muted(text(T, 460, 560, 'Parts sit roughly here. Match them by the labels printed on your board.', 'tiny'));
+    muted(text(T, 460, 573, 'Nothing plugs into the microSD slot, the speaker socket, or P1, P3 and CN1.', 'tiny'));
+
+    // ---------- inside the board (already wired) ----------
+    const ob = layer('grp', 'onboard');
+    text(ob.tx, 390, 616, 'Inside the board: already wired. You touch none of this.', 'lbl');
+    el('rect', { x: 50, y: 632, width: 150, height: 170, rx: 6, style: 'fill:var(--pcb);stroke:var(--ink);stroke-width:1.5' }, ob.sk);
+    text(ob.tx, 125, 716, 'ESP32', 'lbl onpcb');
+    text(ob.tx, 125, 732, 'the brain', 'tiny onpcb');
+    el('rect', { x: 560, y: 632, width: 190, height: 86, rx: 6, style: 'fill:var(--pcb);stroke:var(--ink);stroke-width:1.5' }, ob.sk);
+    text(ob.tx, 655, 668, 'Screen', 'lbl onpcb');
+    text(ob.tx, 655, 683, 'ILI9341 or ST7789', 'tiny onpcb');
+    text(ob.tx, 655, 696, '6 wires, its own bus', 'tiny onpcb');
+    el('rect', { x: 560, y: 728, width: 190, height: 62, rx: 6, style: 'fill:var(--pcb);stroke:var(--ink);stroke-width:1.5' }, ob.sk);
+    text(ob.tx, 655, 750, 'Touch chip', 'lbl onpcb');
+    text(ob.tx, 655, 765, 'XPT2046', 'tiny onpcb');
+    text(ob.tx, 655, 778, '4 wires, a separate bus', 'tiny onpcb');
+    const bus = (list, y0, pitch) => list.forEach(([pin, sig], i) => {
+      const y = y0 + pitch * i;
+      pinSq(ob, 200, y, 7); pinSq(ob, 560, y, 7);
+      wire(ob, [[203, y], [300, y - 2], [460, y + 2], [557, y]], 'var(--inside)', 2.2);
+      tag(ob.tx, i % 2 ? 460 : 300, y + (i % 2 ? 2 : -2) + 3, `${pin} · ${sig}`);
+    });
+    bus([['IO14', 'SCLK'], ['IO13', 'MOSI'], ['IO12', 'MISO'], ['IO15', 'CS'], ['IO2', 'DC'], ['IO21', 'backlight']], 643, 13);
+    bus([['IO25', 'CLK'], ['IO32', 'MOSI'], ['IO39', 'MISO'], ['IO33', 'CS']], 741, 13);
+    el('rect', { x: 88, y: 830, width: 74, height: 26, rx: 5, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1' }, ob.sk);
+    text(ob.tx, 125, 848, 'BOOT', 'lbl onmetal');
+    pinSq(ob, 125, 802, 7);
+    wire(ob, [[125, 830], [125, 816], [125, 805]], 'var(--inside)', 2.2);
+    tag(ob.tx, 134, 820, 'IO0', 'start');
+    muted(text(ob.tx, 180, 846, 'The sketch reads it during the splash screen: hold it to redo touch calibration.', 'tiny', 'start'));
+
+    // ---------- step 2: Wi-Fi + LIFX bulb ----------
+    wifiLayer(K, wf => {
+      el('rect', { x: 40, y: 934, width: 124, height: 84, rx: 6, style: 'fill:var(--pcb);stroke:var(--ink);stroke-width:1.5' }, wf.sk);
+      el('rect', { x: 48, y: 941, width: 108, height: 70, rx: 3, style: 'fill:#14161d' }, wf.sk);
+      el('rect', { x: 60, y: 959, width: 84, height: 34, rx: 12, style: 'fill:#07080d;stroke:#252a44;stroke-width:1' }, wf.sk);
+      el('rect', { x: 63, y: 962, width: 30, height: 28, rx: 7, style: 'fill:#363d5b;stroke:#7f8cff;stroke-width:1.4' }, wf.sk);
+      moon(wf, 78, 976, 1.6);
+      text(wf.tx, 102, 1038, 'CYD', 'small');
+    }, 'CYD', 0);
+  }
+
+  // ======================= Breadboard build =======================
+  const BB = (() => {
+    const P = 16, X0 = 64;                                   // 0.1 inch = 16 units; column 30 is on the left, as printed
+    const cx = c => X0 + (30 - c) * P;
+    const BD = {
+      top: { e0: 80, e1: 428, a: 188, rails: [106, 132, 394, 410] },
+      bot: { e0: 432, e1: 766, a: 524, rails: [454, 470, 730, 746] },
+    };
+    const ROWS = 'abcdefghij';
+    const ry = (b, r) => { const i = ROWS.indexOf(r); return BD[b].a + (i < 5 ? i * P : 112 + (i - 5) * P); };
+    const hole = (b, c, r) => [cx(c), ry(b, r)];
+    const railHas = c => (30 - c) % 6 !== 5;
+    const PADX = 600, padY = k => 508 - 16 * (k - 1);          // header pin k (1 = VCC) on the screen module
+
+    // Every jumper: where it starts (a breadboard hole), the height it runs at, the lane it climbs in, and the header pin it ends on.
+    const WIRES = [
+      { g: 'screen', sig: 'VCC',   pad: 1,  to: 'ESP32 3V3', b: 'bot', c: 21, r: 'e', L: 596, lane: 520, color: 'var(--v33)' },
+      { g: 'screen', sig: 'GND',   pad: 2,  to: 'ESP32 GND', b: 'bot', c: 20, r: 'e', L: 588, lane: 511, color: 'var(--gnd)' },
+      { g: 'screen', sig: 'CS',    pad: 3,  to: 'ESP32 D15', b: 'bot', c: 19, r: 'd', L: 580, lane: 502, color: 'var(--inside)' },
+      { g: 'screen', sig: 'RESET', pad: 4,  to: 'ESP32 EN',  b: 'top', c: 7,  r: 'i', L: 348, lane: 529, color: 'var(--inside)' },
+      { g: 'screen', sig: 'DC',    pad: 5,  to: 'ESP32 D2',  b: 'bot', c: 18, r: 'c', L: 572, lane: 493, color: 'var(--inside)' },
+      { g: 'screen', sig: 'SDI',   pad: 6,  to: 'ESP32 D13', b: 'top', c: 19, r: 'i', L: 338, lane: 538, color: 'var(--inside)' },
+      { g: 'screen', sig: 'SCK',   pad: 7,  to: 'ESP32 D14', b: 'top', c: 17, r: 'f', L: 331, lane: 547, color: 'var(--inside)' },
+      { g: 'screen', sig: 'LED',   pad: 8,  to: 'ESP32 3V3', b: 'bot', c: 21, r: 'b', L: 540, lane: 484, color: 'var(--v33)' },
+      { g: 'touch',  sig: 'T_CLK', pad: 10, to: 'ESP32 D25', b: 'top', c: 14, r: 'f', L: 324, lane: 556, color: 'var(--touch)' },
+      { g: 'touch',  sig: 'T_CS',  pad: 11, to: 'ESP32 D33', b: 'top', c: 13, r: 'f', L: 317, lane: 565, color: 'var(--touch)' },
+      { g: 'touch',  sig: 'T_DIN', pad: 12, to: 'ESP32 D32', b: 'top', c: 12, r: 'f', L: 310, lane: 574, color: 'var(--touch)' },
+      { g: 'touch',  sig: 'T_DO',  pad: 13, to: 'ESP32 VN',  b: 'top', c: 9,  r: 'f', L: 303, lane: 583, color: 'var(--touch)' },
+    ];
+    const holeText = w => `${w.b === 'top' ? 'top' : 'bottom'} board, col ${w.c} row ${w.r}`;
+
+    function draw(K) {
+      const { el, text, muted, layer, jumper, pinSq, arrow, tag } = K;
+
+      // ---------- breadboards and the ESP32 (always visible) ----------
+      const base = layer('base');
+      let holes = '';
+      const hl = (x, y) => { holes += `M${x - 3.5},${y - 3.5}h7v7h-7z`; };
+      for (const b of ['top', 'bot']) {
+        const d = BD[b];
+        el('rect', { x: 36, y: d.e0, width: 520, height: d.e1 - d.e0, rx: 9, style: 'fill:var(--board);stroke:var(--board-edge);stroke-width:2' }, base.sk);
+        el('rect', { x: 44, y: ry(b, 'e') + 12, width: 504, height: 24, rx: 4, style: 'fill:var(--channel)' }, base.sk);
+        const [p1, m1, p2, m2] = d.rails;
+        for (const [py, my] of [[p1, m1], [p2, m2]]) {
+          el('line', { x1: 56, x2: 536, y1: py - 11, y2: py - 11, style: 'stroke:var(--rail-red);stroke-width:2' }, base.sk);
+          el('line', { x1: 56, x2: 536, y1: my + 11, y2: my + 11, style: 'stroke:var(--rail-blue);stroke-width:2' }, base.sk);
+          for (const x of [46, 546]) { text(base.tx, x, py + 4, '+', 'plus'); text(base.tx, x, my + 4, '−', 'minus'); }
+          for (let c = 30; c >= 1; c--) if (railHas(c)) { hl(cx(c), py); hl(cx(c), my); }
+        }
+        for (let c = 30; c >= 1; c--) for (const r of ROWS) hl(cx(c), ry(b, r));
+        for (const c of [30, 25, 20, 15, 10, 5, 1]) text(base.tx, cx(c), d.a - 16, String(c), 'num');
+        for (const r of ROWS) { text(base.tx, 50, ry(b, r) + 3, r, 'num'); text(base.tx, 542, ry(b, r) + 3, r, 'num'); }
+      }
+      el('path', { d: holes, style: 'fill:var(--hole)' }, base.sk);
+      const side = (y, s) => { const t = text(base.tx, 20, y, s, 'small'); t.setAttribute('transform', `rotate(90 20 ${y})`); t.style.fill = 'var(--muted)'; };
+      side(254, 'top breadboard'); side(650, 'bottom breadboard');
+
+      // ESP32 dev board, across both breadboards
+      el('rect', { x: 152, y: 354, width: 320, height: 180, rx: 7, style: 'fill:var(--pcb);stroke:var(--ink);stroke-width:1.5' }, base.sk);
+      el('rect', { x: 328, y: 390, width: 134, height: 108, rx: 3, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1' }, base.sk);
+      text(base.tx, 395, 448, 'ESP32', 'lbl onmetal');
+      text(base.tx, 234, 440, 'ESP32 dev board', 'small onpcb');
+      text(base.tx, 234, 456, 'runs the toggle sketch', 'tiny onpcb');
+      el('rect', { x: 134, y: 430, width: 22, height: 28, rx: 5, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1' }, base.sk);
+      for (const [n, y, ly] of [['EN', 368, 394], ['BOOT', 506, 532]]) {
+        el('rect', { x: 160, y, width: 14, height: 14, rx: 3, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1' }, base.sk);
+        el('circle', { cx: 167, cy: y + 7, r: 3.4, style: 'fill:#4b5560' }, base.sk);
+        text(base.tx, 167, ly, n, 'tiny onpcb');
+      }
+      const TOP = ['VIN', 'GND', 'D13', 'D12', 'D14', 'D27', 'D26', 'D25', 'D33', 'D32', 'D35', 'D34', 'VN', 'VP', 'EN'];
+      const BOT = ['3V3', 'GND', 'D15', 'D2', 'D4', 'RX2', 'TX2', 'D5', 'D18', 'D19', 'D21', 'RX0', 'TX0', 'D22', 'D23'];
+      const USE_TOP = { D13: 'screen', D14: 'screen', EN: 'screen', D25: 'touch', D33: 'touch', D32: 'touch', VN: 'touch' };
+      const USE_BOT = { '3V3': 'screen', GND: 'screen', D15: 'screen', D2: 'screen' };
+      TOP.forEach((n, i) => { const c = 21 - i; pinSq(base, cx(c), ry('top', 'j'), 9); const t = text(base.tx, cx(c), 380, n, 'pin'); if (USE_TOP[n]) t.dataset.use = USE_TOP[n]; });
+      BOT.forEach((n, i) => { const c = 21 - i; pinSq(base, cx(c), ry('bot', 'a'), 9); const t = text(base.tx, cx(c), 511, n, 'pin'); if (USE_BOT[n]) t.dataset.use = USE_BOT[n]; });
+
+      // the screen module, with its 14-pin header facing the breadboards
+      text(base.tx, 680, 262, 'screen module', 'small');
+      muted(text(base.tx, 680, 275, '2.8 in, ILI9341 + touch', 'tiny'));
+      el('rect', { x: 588, y: 284, width: 184, height: 244, rx: 8, style: 'fill:var(--pcb);stroke:var(--ink);stroke-width:1.5' }, base.sk);
+      el('rect', { x: 668, y: 292, width: 96, height: 228, rx: 4, style: 'fill:#0b0d10' }, base.sk);
+      el('rect', { x: 672, y: 297, width: 88, height: 218, rx: 2, style: 'fill:#14161d' }, base.sk);
+      el('rect', { x: 688, y: 330, width: 56, height: 148, rx: 20, style: 'fill:#07080d;stroke:#252a44;stroke-width:1' }, base.sk);
+      el('rect', { x: 691, y: 333, width: 50, height: 68, rx: 12, style: 'fill:#363d5b;stroke:#7f8cff;stroke-width:1.4' }, base.sk);
+      K.moon(base, 716, 367, 2.4);
+      const NAMES = ['VCC', 'GND', 'CS', 'RESET', 'DC', 'SDI', 'SCK', 'LED', 'SDO', 'T_CLK', 'T_CS', 'T_DIN', 'T_DO', 'T_IRQ'];
+      NAMES.forEach((n, i) => {
+        const y = padY(i + 1);
+        pinSq(base, PADX, y, 8);
+        text(base.tx, 611, y + 2.6, n, 'mpin', 'start');
+        if (n === 'SDO' || n === 'T_IRQ') { const t = text(base.tx, 648, y + 2.6, 'not used', 'tiny', 'start'); t.style.opacity = '.7'; t.style.fill = 'var(--on-pcb)'; }
+      });
+      muted(text(base.tx, 680, 548, 'Header drawn in the usual order.', 'tiny'));
+      muted(text(base.tx, 680, 560, 'Go by the labels printed on yours.', 'tiny'));
+
+      // ---------- step 1: ESP32 + USB ----------
+      const es = layer('grp', 'esp');
+      el('path', { d: 'M134,444 C100,446 60,462 24,500', class: 'w', style: 'stroke:var(--gnd);--sw:7px' }, es.sk);
+      tag(es.tx, 28, 522, 'USB to Mac', 'start');
+      text(es.tx, 18, 28, 'Press the ESP32 across both breadboards:', 'lbl', 'start');
+      text(es.tx, 18, 46, 'top pin row into row j of the top board,', 'lbl', 'start');
+      text(es.tx, 18, 64, 'bottom pin row into row a of the bottom board.', 'lbl', 'start');
+      arrow(es.tx, 'M200,70 C216,160 196,260 194,350');
+
+      // ---------- steps 2 and 3: jumper wires ----------
+      const layers = { screen: layer('grp', 'screen'), touch: layer('grp', 'touch') };
+      for (const w of WIRES) {
+        const [hx, hy] = hole(w.b, w.c, w.r), py = padY(w.pad);
+        const pts = [[hx, hy]];
+        if (w.L !== hy) pts.push([hx, w.L]);
+        pts.push([w.lane, w.L], [w.lane, py], [PADX, py]);
+        jumper(layers[w.g], pts, w.color);
+      }
+
+      // ---------- step 4: Wi-Fi + LIFX bulb ----------
+      wifiLayer(K, wf => {
+        el('rect', { x: 40, y: 946, width: 124, height: 60, rx: 5, style: 'fill:var(--pcb);stroke:var(--ink);stroke-width:1.5' }, wf.sk);
+        el('rect', { x: 96, y: 952, width: 62, height: 48, rx: 3, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1' }, wf.sk);
+        el('rect', { x: 32, y: 968, width: 14, height: 16, rx: 3, style: 'fill:var(--metal);stroke:var(--ink);stroke-width:1' }, wf.sk);
+        for (let i = 0; i < 12; i++) { pinSq(wf, 52 + i * 9.5, 950, 4); pinSq(wf, 52 + i * 9.5, 1002, 4); }
+        text(wf.tx, 127, 981, 'ESP32', 'small onmetal');
+        text(wf.tx, 102, 1038, 'ESP32 dev board', 'small');
+      }, 'ESP32', -90);
+    }
+    return { draw, WIRES, holeText };
+  })();
+
+  // ======================= Parts lists =======================
+  const wireRows = g => BB.WIRES.filter(w => w.g === g).map(w => [w.sig, w.to, BB.holeText(w)]);
+
+  const STEPS = {
+    cyd: {
+      cyd: {
+        n: '1', name: 'CYD board + USB cable', color: 'var(--cyd)', cols: ['Part', 'Goes to', 'Notes'],
+        lead: 'One USB cable from the CYD to your Mac. It powers the board, loads the sketch and carries the Serial Monitor. Use a cable that carries data: a charge-only cable powers the board but no port shows up.',
+        rows: [
+          ['CYD USB socket', 'Mac USB port', 'Micro-USB on most boards. Some have a second USB-C socket: use one, not both.'],
+          ['RESET button', 'Nothing', 'On the back. Press it to restart the sketch.'],
+          ['BOOT button', 'Nothing', 'On the back. Hold it during the splash to redo touch calibration, or while the IDE says “Connecting…” if an upload will not start.'],
+          ['Breadboard, jumpers, resistors', 'Not needed', 'The screen and touch chip are already wired on the board.'],
+        ],
+        notes: 'The USB socket is on one side or the other. If the picture is upside down, change CYD_ROTATION from 1 to 3 in config.h. In the Arduino IDE the port looks like /dev/cu.usbserial-… (or wchusbserial…). No port in the list? Install the CH34x driver, as SETUP.md explains. Once the sketch is loaded, any 5 V USB charger can power the board instead of the Mac.',
+      },
+      wifi: {
+        n: '2', name: 'Wi-Fi + LIFX bulb', color: 'var(--wifi)', cols: ['Part', 'Goes to', 'Notes'],
+        lead: 'There are no wires in this step. The CYD and the bulb both join your home Wi-Fi and talk straight to each other (LIFX LAN protocol, UDP port 56700). No cloud account is involved.',
+        warn: 'The ESP32 cannot join 5 GHz Wi-Fi. Use the 2.4 GHz network.',
+        rows: [
+          ['Wi-Fi name + password', 'secrets.h', 'WIFI_SSID and WIFI_PASSWORD, typed between the quotes.'],
+          ['LIFX bulb', 'Same Wi-Fi as the CYD', 'Set it up in the LIFX app first, and switch it on at the wall. Guest networks and “client isolation” block the CYD from seeing it.'],
+          ['Bulb address', 'Found automatically at boot', 'If an amber dot stays on: type the bulb’s IP into LIFX_FALLBACK_IP (config.h).'],
+          ['Several LIFX devices?', 'LIFX_TARGET_MAC (config.h)', 'Optional. The Serial Monitor lists every device’s id.'],
+        ],
+        notes: 'Status dot, top-right of the screen: none means all good, red means no Wi-Fi, amber means Wi-Fi is fine but the bulb is not answering. The toggle also follows the bulb: change it in the LIFX app and the toggle flips within a few seconds.',
+      },
+      onboard: {
+        n: '', name: 'Inside the board (already wired)', color: 'var(--inside)', cols: ['Signal', 'Goes to', 'Pin'],
+        lead: 'These connections are printed in the board’s copper, and the sketch already knows them (display_config.h). Leave them alone. They are here so you can see what happens inside.',
+        rows: [
+          ['Screen clock (SCLK)', 'ESP32', 'IO14'],
+          ['Screen data in (MOSI)', 'ESP32', 'IO13'],
+          ['Screen data out (MISO)', 'ESP32', 'IO12'],
+          ['Screen chip select (CS)', 'ESP32', 'IO15'],
+          ['Screen data/command (DC)', 'ESP32', 'IO2'],
+          ['Screen backlight', 'ESP32', 'IO21'],
+          ['Touch clock (CLK)', 'ESP32', 'IO25'],
+          ['Touch data in (MOSI)', 'ESP32', 'IO32'],
+          ['Touch data out (MISO)', 'ESP32', 'IO39'],
+          ['Touch chip select (CS)', 'ESP32', 'IO33'],
+          ['BOOT button', 'ESP32', 'IO0'],
+        ],
+        notes: 'The touch chip has its own set of wires, separate from the screen’s, so the sketch talks to each on its own. Pins match the community pin map for this board (witnessmenow/ESP32-Cheap-Yellow-Display).',
+      },
+    },
+    bb: {
+      esp: {
+        n: '1', name: 'ESP32 + USB', color: 'var(--cyd)', cols: ['Part', 'Goes to', 'Holes'],
+        lead: 'Press the ESP32 dev board across both half-size breadboards, exactly as in the eyes sheet: top pin row in row j of the top board, bottom pin row in row a of the bottom board. Columns run 30 on the left to 1 on the right. The USB cable powers it and loads the sketch.',
+        rows: [
+          ['ESP32 top pin row', 'Top board, row j', 'VIN in col 21 … EN in col 7'],
+          ['ESP32 bottom pin row', 'Bottom board, row a', '3V3 in col 21 … D23 in col 7'],
+          ['ESP32 USB', 'Mac', 'power, upload, Serial Monitor'],
+          ['EN button', 'Nothing', 'on the dev board: press to restart'],
+          ['BOOT button', 'Nothing', 'on the dev board: hold during the splash to redo touch calibration'],
+        ],
+        notes: 'Board settings are the same as for the CYD: ESP32 Dev Module (see SETUP.md). No port in the list? Install the CH34x or CP210x USB driver. Unplug USB while you move wires. Do one step, check it, then the next.',
+      },
+      screen: {
+        n: '2', name: 'Screen wires (8)', color: 'var(--inside)', cols: ['Screen pin', 'Goes to', 'Holes'],
+        lead: 'Use female-to-male jumpers. The female end pushes onto the screen module’s header pin. The male end goes into a hole in the same column as the ESP32 pin, in rows f to i on the top board or rows b to e on the bottom board.',
+        warn: 'Power the module from 3V3, never VIN.',
+        rows: [...wireRows('screen'), ['SDO (MISO)', 'Nothing', 'leave empty']],
+        notes: 'These are the same ESP32 pins the CYD uses inside (display_config.h), so the sketch needs no changes. LED goes to 3V3, so the backlight stays at full brightness and CYD_BACKLIGHT does nothing here. RESET goes to EN, so the screen restarts together with the board, as on the CYD. SDO stays empty because the sketch never reads from the screen. Keep CYD_VARIANT at 1 (ILI9341); if the colours look like a photo negative, set it to 2.',
+      },
+      touch: {
+        n: '3', name: 'Touch wires (4)', color: 'var(--touch)', cols: ['Touch pin', 'Goes to', 'Holes'],
+        lead: 'Four more jumpers to the touch chip on the same module. They use their own ESP32 pins, separate from the screen’s, like on the CYD.',
+        rows: [...wireRows('touch'), ['T_IRQ', 'Nothing', 'leave empty']],
+        notes: 'T_DIN is the touch chip’s data in, T_DO its data out. VN is the dev board pin printed “VN” (GPIO 39, input only). The sketch does not use T_IRQ. Touch calibration runs by itself on the first start, as on the CYD.',
+      },
+      wifi: null,   // filled in below from the CYD build, with “ESP32” in place of “CYD”
+    },
+  };
+  STEPS.bb.wifi = Object.assign({}, STEPS.cyd.wifi, {
+    n: '4',
+    lead: STEPS.cyd.wifi.lead.replace('The CYD and', 'The ESP32 and'),
+    rows: STEPS.cyd.wifi.rows.map(r => r.map(c => c.replace('the CYD', 'the ESP32'))),
+  });
+
+  const CHIPS = {
+    cyd: [['all', 'Everything'], ['cyd', '1 · CYD + USB cable', 'var(--cyd)'], ['wifi', '2 · Wi-Fi + LIFX bulb', 'var(--wifi)'], ['onboard', 'Inside the board (already wired)', 'var(--inside)']],
+    bb: [['all', 'Everything'], ['esp', '1 · ESP32 + USB', 'var(--cyd)'], ['screen', '2 · Screen wires', 'var(--inside)'], ['touch', '3 · Touch wires', 'var(--touch)'], ['wifi', '4 · Wi-Fi + LIFX bulb', 'var(--wifi)']],
+  };
+  const HINTS = {
+    cyd: 'You can also tap a part in the drawing. <span class="sw"></span> dotted lines are Wi-Fi, not wires. The drawing is not to scale.',
+    bb: 'You can also tap a part in the drawing. <span class="swl" style="--c:var(--v33)"></span> wires carry 3.3 V. <span class="swl" style="--c:var(--gnd)"></span> wires are ground. <span class="sw"></span> dotted lines are Wi-Fi. Not to scale.',
+  };
+  const INTROS = {
+    cyd: `<p class="big"><strong>No breadboard for this build.</strong> There are no jumper wires, resistors or soldering. You plug in one USB cable and share one Wi-Fi network.</p>
+      <p class="lead">You need: the CYD board, a USB cable that carries data, your Mac, a 2.4 GHz Wi-Fi network, and your LIFX bulb already set up in the LIFX app.</p>`,
+    bb: `<p class="warn">Have the ESP32-2432S028R (the CYD)? You do not need this tab. The CYD already has the ESP32, the screen and the touch chip on one board, so use the “CYD board” tab. This breadboard version is only for building the same thing from loose parts.</p>
+      <p class="big"><strong>12 jumper wires, no soldering, no code changes.</strong> The screen and touch wires land on the same ESP32 pins the CYD uses inside, so the sketch from the CYD build runs as it is.</p>
+      <p class="lead">You need: the ESP32 dev board and the two half-size breadboards from the eyes project, a 2.8 in SPI touch-screen module (ILI9341 screen with XPT2046 touch, 14-pin header), 12 female-to-male jumper wires, a USB cable that carries data, your Mac, 2.4 GHz Wi-Fi, and your LIFX bulb already set up in the LIFX app.</p>
+      <p class="warn">Drawn for the common 14-pin ILI9341 module. Different screen, such as an ST7789 or one without touch? Tell me and I will redraw it.</p>`,
+  };
+  const ORDER = { cyd: ['cyd', 'wifi', 'onboard'], bb: ['esp', 'screen', 'touch', 'wifi'] };
+
+  // ======================= Page wiring =======================
+  const kits = { cyd: Kit(document.getElementById('dia-cyd'), 'c'), bb: Kit(document.getElementById('dia-bb'), 'b') };
+  drawCyd(kits.cyd);
+  BB.draw(kits.bb);
+
+  const card = s => `<article class="step" style="--c:${s.color}">
+      <h3><span class="dot"></span>${s.n ? `<span class="n">Step ${s.n}</span>` : ''}${s.name}</h3>
+      <p>${s.lead}</p>${s.warn ? `<p class="warn">${s.warn}</p>` : ''}
+      <div class="tw"><table><thead><tr>${s.cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${s.rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td${/^(Pin|Holes)$/.test(s.cols[2]) ? ' class="mono"' : ''}>${r[2]}</td></tr>`).join('')}</tbody></table></div>
+      ${s.notes ? `<p class="note">${s.notes}</p>` : ''}
+    </article>`;
+  const panel = document.getElementById('panel');
+  const chipsEl = document.getElementById('chips');
+  const hintEl = document.getElementById('hint');
+  const state = { v: 'cyd', f: 'all' };
+
+  const paint = () => {
+    const { v } = state, steps = STEPS[v], svg = kits[v].svg;
+    let f = state.f;
+    if (!steps[f] && f !== 'all') f = state.f = 'all';
+    document.querySelectorAll('.vtab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.variant === v)));
+    for (const k of Object.keys(kits)) kits[k].svg.toggleAttribute('hidden', k !== v);
+    document.querySelectorAll('[data-show]').forEach(e => { e.hidden = e.dataset.show !== v; });
+    chipsEl.innerHTML = CHIPS[v].map(([id, label, color]) => `<button class="chip" data-f="${id}" aria-pressed="${id === f}">${color ? `<span class="dot" style="--c:${color}"></span>` : ''}${label}</button>`).join('');
+    hintEl.innerHTML = HINTS[v];
+    svg.classList.toggle('dim', f !== 'all');
+    svg.querySelectorAll('.grp').forEach(g => g.classList.toggle('on', f === 'all' || g.dataset.g === f));
+    svg.querySelectorAll('[data-use]').forEach(t => t.classList.toggle('hot', f !== 'all' && t.dataset.use.split(' ').includes(f)));
+    panel.innerHTML = f === 'all' ? INTROS[v] + ORDER[v].map(k => card(steps[k])).join('') : card(steps[f]);
+    try { localStorage.setItem('cyd-wiring-variant', v); localStorage.setItem('cyd-wiring-focus-' + v, f); } catch (e) {}
+  };
+  const show = (v, f) => { state.v = v; state.f = f || 'all'; paint(); };
+
+  document.querySelectorAll('.vtab').forEach(t => t.addEventListener('click', () => {
+    let f = 'all';
+    try { f = localStorage.getItem('cyd-wiring-focus-' + t.dataset.variant) || 'all'; } catch (e) {}
+    show(t.dataset.variant, f);
+  }));
+  chipsEl.addEventListener('click', e => { const c = e.target.closest('.chip'); if (c) show(state.v, c.dataset.f); });
+  for (const k of Object.keys(kits)) kits[k].svg.addEventListener('click', e => {
+    const g = e.target.closest('.grp');
+    if (g) show(k, kits[k].svg.classList.contains('dim') && g.classList.contains('on') ? 'all' : g.dataset.g);
+  });
+  let v0 = 'cyd', f0 = 'all';
+  try { v0 = localStorage.getItem('cyd-wiring-variant') || 'cyd'; if (!kits[v0]) v0 = 'cyd'; f0 = localStorage.getItem('cyd-wiring-focus-' + v0) || 'all'; } catch (e) {}
+  show(v0, f0);
+
+  document.querySelectorAll('.copy').forEach(copy => {
+    const mon = document.getElementById(copy.dataset.for);
+    copy.addEventListener('click', () => {
+      const done = () => { copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy'; }, 1600); };
+      const pick = () => { const r = document.createRange(); r.selectNodeContents(mon); const s = getSelection(); s.removeAllRanges(); s.addRange(r); copy.textContent = 'Selected: press ⌘C'; };
+      try { navigator.clipboard.writeText(mon.textContent).then(done, pick); } catch (e) { pick(); }
+    });
+  });
+})();
+</script>
+</body>
+</html>
